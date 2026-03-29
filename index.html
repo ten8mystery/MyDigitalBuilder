@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Digital Builder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text: #111111;
+            --accent: #555555;
+            --line: #eeeeee;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            letter-spacing: -0.01em;
+        }
+
+        /* Simple centered container */
+        .content {
+            text-align: center;
+            max-width: 400px;
+            width: 85%;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .symbol {
+            font-size: 24px;
+            margin-bottom: 40px;
+            font-weight: 300;
+            color: var(--text);
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        p {
+            font-size: 0.95rem;
+            color: var(--accent);
+            line-height: 1.5;
+            margin-bottom: 48px;
+            font-weight: 300;
+        }
+
+        .nav-links {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .btn-enter {
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 12px 32px;
+            border: 1px solid var(--text);
+            border-radius: 40px; /* Pill shape for a softer simple look */
+            transition: all 0.2s ease;
+        }
+
+        .btn-enter:hover {
+            background: var(--text);
+            color: var(--bg);
+        }
+
+        .secondary-link {
+            font-size: 0.8rem;
+            color: #999;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .secondary-link:hover {
+            color: var(--text);
+        }
+
+        footer {
+            position: absolute;
+            bottom: 40px;
+            font-size: 0.75rem;
+            color: #ccc;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="content">
+        <div class="symbol">□</div>
+
+        <h1>My Digital Builder</h1>
+        <p>An autonomous space where patterns are learned and structures are built in real-time.</p>
+
+        <div class="nav-links">
+            <a href="editor.html" class="btn-enter">Enter Workspace</a>
+            <a href="#" class="secondary-link"></a>
+        </div>
+    </div>
+
+    <footer>Inspired by TADC</footer>
+
+</body>
+</html>
+
