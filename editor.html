@@ -11,7 +11,7 @@
             overflow: hidden; 
             background: #050505; 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            touch-action: none; /* Prevents mobile pull-to-refresh */
+            touch-action: none; 
         }
         canvas { display: block; }
 
@@ -59,11 +59,9 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
-            /* Animation properties */
             transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
         }
 
-        /* Class added via JS to hide the panel */
         #ui-panel.collapsed {
             transform: translateX(calc(-100% - 40px));
             opacity: 0;
@@ -87,11 +85,7 @@
             padding: 0 5px;
             transition: color 0.2s;
         }
-        .close-btn:hover {
-            color: #fff;
-            background: none;
-            border: none;
-        }
+        .close-btn:hover { color: #fff; }
 
         /* --- Controls --- */
         .control-group { display: flex; flex-direction: column; gap: 8px; }
@@ -109,6 +103,10 @@
             font-weight: 600;
         }
         button.action-btn:hover { background: #3f3f5a; border-color: #6c6cf5; }
+        
+        /* Specific Button Colors */
+        button.inspire-btn { background: #2a352a; }
+        button.inspire-btn:hover { background: #3f5a3f; border-color: #6cf56c; }
         button.danger:hover { background: #5a2a2a; border-color: #f56c6c; }
 
         input[type="range"] { accent-color: #6c6cf5; cursor: pointer; }
@@ -151,8 +149,11 @@
     </div>
 
     <div class="control-group">
-        <button id="btn-upload" class="action-btn">Upload Blueprint (Image)</button>
+        <button id="btn-upload" class="action-btn">Upload Blueprint (Purge & Build)</button>
         <input type="file" id="upload" accept="image/*">
+        
+        <button id="btn-inspire" class="action-btn inspire-btn">Add Inspiration (Grow 3D)</button>
+        <input type="file" id="upload-inspire" accept="image/*">
     </div>
 
     <div class="control-group">
@@ -200,18 +201,10 @@
     const uiToggle = document.getElementById('ui-toggle');
     const uiClose = document.getElementById('ui-close');
 
-    uiToggle.addEventListener('click', () => {
-        uiPanel.classList.remove('collapsed');
-    });
+    uiToggle.addEventListener('click', () => uiPanel.classList.remove('collapsed'));
+    uiClose.addEventListener('click', () => uiPanel.classList.add('collapsed'));
 
-    uiClose.addEventListener('click', () => {
-        uiPanel.classList.add('collapsed');
-    });
-
-    // Auto-collapse on small screens to save space
-    if (window.innerWidth <= 600) {
-        uiPanel.classList.add('collapsed');
-    }
+    if (window.innerWidth <= 600) uiPanel.classList.add('collapsed');
 
     // --- Scene Setup ---
     const scene = new THREE.Scene();
@@ -227,7 +220,6 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
     document.body.appendChild(renderer.domElement);
 
-    // --- Camera Controls ---
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
@@ -243,7 +235,6 @@
     sun.shadow.mapSize.height = 2048;
     scene.add(sun);
 
-    // Grid Floor
     const floorGeo = new THREE.PlaneGeometry(100, 100);
     const floorMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
     const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -268,7 +259,7 @@
 
     // --- State & Variables ---
     let blocks = [];
-    let heightMap = new Map();
+    const worldGrid = new Set(); // 3D Occupancy tracker
     let targetQueue = [];
     let learnedColors = [];
     let state = "DREAMING";
@@ -281,17 +272,12 @@
     const uiBlocks = document.getElementById('ui-blocks');
     const uiMemory = document.getElementById('ui-memory');
 
-    document.getElementById('speed-slider').addEventListener('input', (e) => {
-        aiSpeed = parseFloat(e.target.value);
-    });
-
-    document.getElementById('btn-upload').addEventListener('click', () => {
-        document.getElementById('upload').click();
-    });
-
-    document.getElementById('btn-reset').addEventListener('click', () => {
-        resetWorld(true);
-    });
+    document.getElementById('speed-slider').addEventListener('input', (e) => aiSpeed = parseFloat(e.target.value));
+    
+    document.getElementById('btn-upload').addEventListener('click', () => document.getElementById('upload').click());
+    document.getElementById('btn-inspire').addEventListener('click', () => document.getElementById('upload-inspire').click());
+    
+    document.getElementById('btn-reset').addEventListener('click', () => resetWorld(true));
 
     // --- Core Functions ---
     function resetWorld(hardReset = false) {
@@ -301,7 +287,7 @@
             scene.remove(b);
         });
         blocks = [];
-        heightMap.clear();
+        worldGrid.clear();
         targetQueue = [];
         uiBlocks.innerText = "0";
         
@@ -315,16 +301,13 @@
         }
     }
 
-    // Auto Reset Timer
     setInterval(() => {
         timeLeft--;
         uiTimer.innerText = `${timeLeft}s`;
-        if (timeLeft <= 0) {
-            resetWorld(true);
-        }
+        if (timeLeft <= 0) resetWorld(true);
     }, 1000);
 
-    // Process Image
+    // --- Blueprint Processing (Purges & Recreates exactly) ---
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -350,8 +333,8 @@
                     
                     const brightness = (r + g + b) / 3;
                     if (brightness > 20) {
-                        const x = ((i/4) % 40 - 20) * 0.7;
-                        const z = (Math.floor((i/4) / 40) - 20) * 0.7;
+                        const gx = (i/4) % 40 - 20;
+                        const gz = Math.floor((i/4) / 40) - 20;
                         const color = new THREE.Color(`rgb(${r},${g},${b})`);
                         
                         if (!learnedColors.some(c => c.getHex() === color.getHex())) {
@@ -359,12 +342,22 @@
                             uiMemory.innerText = learnedColors.length;
                         }
 
-                        targetQueue.push({ x, z, color, maxH: Math.ceil(brightness / 50) });
+                        const maxH = Math.ceil(brightness / 50);
+                        // Queue in 3D vertically
+                        for(let gy = 0; gy < maxH; gy++) {
+                            const key = `${gx},${gy},${gz}`;
+                            if(!worldGrid.has(key)) {
+                                worldGrid.add(key); // Reserve space
+                                targetQueue.push({ gx, gy, gz, color });
+                            }
+                        }
                     }
                 }
-                e.target.value = '';
                 
-                // Optional: Auto-hide UI on mobile after uploading to watch the build
+                // Sort queue so AI builds from ground up
+                targetQueue.sort((a, b) => a.gy - b.gy);
+                
+                e.target.value = '';
                 if (window.innerWidth <= 600) uiPanel.classList.add('collapsed');
             };
             img.src = event.target.result;
@@ -372,71 +365,139 @@
         reader.readAsDataURL(file);
     });
 
-    // Handle Window Resize
+    // --- Inspiration Processing (Doesn't Purge, Generates organic 3D growth) ---
+    document.getElementById('upload-inspire').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                state = "INSPIRED";
+                uiState.innerText = state;
+                uiState.style.color = "#c76cf5"; // Purple for inspired
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 40; canvas.height = 40;
+                ctx.drawImage(img, 0, 0, 40, 40);
+                const data = ctx.getImageData(0, 0, 40, 40).data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+                    if (a === 0) continue; 
+                    
+                    const brightness = (r + g + b) / 3;
+                    if (brightness > 20) {
+                        const color = new THREE.Color(`rgb(${r},${g},${b})`);
+                        if (!learnedColors.some(c => c.getHex() === color.getHex())) {
+                            learnedColors.push(color);
+                            uiMemory.innerText = learnedColors.length;
+                        }
+                    }
+                }
+                e.target.value = '';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    // --- Main Animation Loop ---
+    // --- Main Animation & 3D Building Loop ---
     let currentGoal = null;
 
     function animate() {
         requestAnimationFrame(animate);
         controls.update(); 
 
+        // Generate Random 3D Growth if queue is empty
         if (targetQueue.length === 0) {
-            if (state !== "DREAMING") {
+            if (state !== "DREAMING" && state !== "INSPIRED") {
                 state = "DREAMING";
                 uiState.innerText = state;
                 uiState.style.color = "#4caf50";
             }
             
-            const randomColor = learnedColors.length > 0 
+            const color = learnedColors.length > 0 
                 ? learnedColors[Math.floor(Math.random() * learnedColors.length)] 
                 : new THREE.Color(0x6c6cf5); 
             
-            targetQueue.push({
-                x: (Math.floor(Math.random() * 40) - 20) * 0.7,
-                z: (Math.floor(Math.random() * 40) - 20) * 0.7,
-                color: randomColor,
-                maxH: Math.floor(Math.random() * 4) + 1
-            });
+            let placed = false;
+            let attempts = 0;
+            
+            while(!placed && attempts < 50) {
+                attempts++;
+                let gx, gy, gz;
+
+                // 15% chance to start a new structure on the ground, otherwise grow from existing block
+                if (blocks.length === 0 || Math.random() < 0.15) {
+                    gx = Math.floor(Math.random() * 40) - 20;
+                    gy = 0;
+                    gz = Math.floor(Math.random() * 40) - 20;
+                } else {
+                    // Organic 3D Growth: Pick random existing block and attach to a face
+                    const base = blocks[Math.floor(Math.random() * blocks.length)].userData;
+                    const dir = Math.floor(Math.random() * 5); // 0:up, 1:+x, 2:-x, 3:+z, 4:-z
+                    
+                    gx = base.gx + (dir === 1 ? 1 : dir === 2 ? -1 : 0);
+                    gy = base.gy + (dir === 0 ? 1 : 0); // Allows building upwards!
+                    gz = base.gz + (dir === 3 ? 1 : dir === 4 ? -1 : 0);
+
+                    // Stop it from building infinitely high (cap at 15 blocks tall)
+                    if (gy < 0 || gy > 15) continue;
+                }
+
+                const key = `${gx},${gy},${gz}`;
+                if (!worldGrid.has(key)) {
+                    worldGrid.add(key); // Reserve coordinate
+                    targetQueue.push({ gx, gy, gz, color });
+                    placed = true;
+                }
+            }
         }
 
+        // Bot Movement and Block Placement
         if (targetQueue.length > 0) {
             if (!currentGoal) currentGoal = targetQueue[0];
 
-            const moveTarget = new THREE.Vector3(currentGoal.x, 0.3, currentGoal.z);
+            // Convert Grid Coords to World Coords
+            const worldX = currentGoal.gx * 0.7;
+            const worldY = (currentGoal.gy * 0.65) + 0.325;
+            const worldZ = currentGoal.gz * 0.7;
+
+            // Make Bot hover slightly above the target location
+            const moveTarget = new THREE.Vector3(worldX, worldY + 0.6, worldZ);
             bot.position.lerp(moveTarget, aiSpeed);
 
-            if (bot.position.distanceTo(moveTarget) < 0.1) {
-                const key = `${currentGoal.x.toFixed(2)},${currentGoal.z.toFixed(2)}`;
-                let h = heightMap.get(key) || 0;
-
-                if (h < currentGoal.maxH) {
-                    const blockGeo = new THREE.BoxGeometry(0.65, 0.65, 0.65);
-                    const blockMat = new THREE.MeshStandardMaterial({ 
-                        color: currentGoal.color,
-                        roughness: 0.3,
-                        metalness: 0.2
-                    });
-                    const block = new THREE.Mesh(blockGeo, blockMat);
-                    
-                    block.position.set(currentGoal.x, (h * 0.65) + 0.325, currentGoal.z);
-                    block.castShadow = true;
-                    block.receiveShadow = true;
-                    
-                    scene.add(block);
-                    blocks.push(block);
-                    heightMap.set(key, h + 1);
-                    
-                    uiBlocks.innerText = blocks.length;
-                } else {
-                    targetQueue.shift();
-                    currentGoal = null;
-                }
+            if (bot.position.distanceTo(moveTarget) < 0.15) {
+                const blockGeo = new THREE.BoxGeometry(0.65, 0.65, 0.65);
+                const blockMat = new THREE.MeshStandardMaterial({ 
+                    color: currentGoal.color,
+                    roughness: 0.3,
+                    metalness: 0.2
+                });
+                const block = new THREE.Mesh(blockGeo, blockMat);
+                
+                block.position.set(worldX, worldY, worldZ);
+                block.castShadow = true;
+                block.receiveShadow = true;
+                
+                // Save grid coordinates in mesh for future organic growth references
+                block.userData = { gx: currentGoal.gx, gy: currentGoal.gy, gz: currentGoal.gz };
+                
+                scene.add(block);
+                blocks.push(block);
+                uiBlocks.innerText = blocks.length;
+                
+                targetQueue.shift();
+                currentGoal = null;
             }
         }
 
