@@ -15,6 +15,31 @@
         }
         canvas { display: block; }
 
+        /* --- Floating Menu Button --- */
+        #ui-toggle {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 5;
+            background: rgba(15, 15, 20, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 12px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: background 0.2s ease, transform 0.2s ease;
+        }
+
+        #ui-toggle:hover {
+            background: rgba(30, 30, 40, 0.85);
+            transform: scale(1.02);
+        }
+
         /* --- Professional Glassmorphism UI --- */
         #ui-panel {
             position: absolute;
@@ -34,15 +59,45 @@
             display: flex;
             flex-direction: column;
             gap: 15px;
+            /* Animation properties */
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s ease;
+        }
+
+        /* Class added via JS to hide the panel */
+        #ui-panel.collapsed {
+            transform: translateX(calc(-100% - 40px));
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
         }
 
         h1 { font-size: 1.2rem; color: #fff; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
         
+        .close-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0 5px;
+            transition: color 0.2s;
+        }
+        .close-btn:hover {
+            color: #fff;
+            background: none;
+            border: none;
+        }
+
         /* --- Controls --- */
         .control-group { display: flex; flex-direction: column; gap: 8px; }
         label { font-size: 0.85rem; color: #aaa; text-transform: uppercase; letter-spacing: 0.5px; }
         
-        button {
+        button.action-btn {
             background: #2a2a35;
             color: #fff;
             border: 1px solid rgba(255,255,255,0.2);
@@ -53,12 +108,10 @@
             transition: all 0.2s ease;
             font-weight: 600;
         }
-        button:hover { background: #3f3f5a; border-color: #6c6cf5; }
+        button.action-btn:hover { background: #3f3f5a; border-color: #6c6cf5; }
         button.danger:hover { background: #5a2a2a; border-color: #f56c6c; }
 
         input[type="range"] { accent-color: #6c6cf5; cursor: pointer; }
-        
-        /* Hide default file input for custom button styling */
         input[type="file"] { display: none; }
 
         /* --- Stats Board --- */
@@ -78,6 +131,7 @@
         
         /* Mobile adjustments */
         @media (max-width: 600px) {
+            #ui-toggle { top: 10px; left: 10px; }
             #ui-panel { top: 10px; left: 10px; padding: 15px; }
             h1 { font-size: 1rem; }
         }
@@ -85,14 +139,19 @@
 </head>
 <body>
 
+<button id="ui-toggle">☰ Menu</button>
+
 <div id="ui-panel">
-    <div>
-        <h1>My Digital Builder</h1>
-        <label>Autonomous Construction Unit</label>
+    <div class="panel-header">
+        <div>
+            <h1>My Digital Builder</h1>
+            <label>Autonomous Construction Unit</label>
+        </div>
+        <button id="ui-close" class="close-btn">✕</button>
     </div>
 
     <div class="control-group">
-        <button id="btn-upload">Upload Blueprint (Image)</button>
+        <button id="btn-upload" class="action-btn">Upload Blueprint (Image)</button>
         <input type="file" id="upload" accept="image/*">
     </div>
 
@@ -120,7 +179,7 @@
         </div>
     </div>
 
-    <button class="danger" id="btn-reset">Purge Memory & Reset</button>
+    <button class="action-btn danger" id="btn-reset">Purge Memory & Reset</button>
 </div>
 
 <script type="importmap">
@@ -136,6 +195,24 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+    // --- UI Toggle Logic ---
+    const uiPanel = document.getElementById('ui-panel');
+    const uiToggle = document.getElementById('ui-toggle');
+    const uiClose = document.getElementById('ui-close');
+
+    uiToggle.addEventListener('click', () => {
+        uiPanel.classList.remove('collapsed');
+    });
+
+    uiClose.addEventListener('click', () => {
+        uiPanel.classList.add('collapsed');
+    });
+
+    // Auto-collapse on small screens to save space
+    if (window.innerWidth <= 600) {
+        uiPanel.classList.add('collapsed');
+    }
+
     // --- Scene Setup ---
     const scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x050505, 0.015);
@@ -147,14 +224,14 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for mobile
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
     document.body.appendChild(renderer.domElement);
 
     // --- Camera Controls ---
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true; // Smooth inertia
+    controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxPolarAngle = Math.PI / 2 - 0.05; // Don't allow camera to go below ground
+    controls.maxPolarAngle = Math.PI / 2 - 0.05;
 
     // --- Environment & Lighting ---
     scene.add(new THREE.AmbientLight(0x222222));
@@ -174,7 +251,6 @@
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // Grid Helper for aesthetics
     const gridHelper = new THREE.GridHelper(100, 100, 0x333333, 0x222222);
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
@@ -186,7 +262,6 @@
     bot.castShadow = true;
     scene.add(bot);
 
-    // Bot Light
     const botLight = new THREE.PointLight(0x6c6cf5, 2, 10);
     botLight.position.set(0, 1, 0);
     bot.add(botLight);
@@ -271,7 +346,7 @@
 
                 for (let i = 0; i < data.length; i += 4) {
                     const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
-                    if (a === 0) continue; // Ignore transparent pixels
+                    if (a === 0) continue; 
                     
                     const brightness = (r + g + b) / 3;
                     if (brightness > 20) {
@@ -287,8 +362,10 @@
                         targetQueue.push({ x, z, color, maxH: Math.ceil(brightness / 50) });
                     }
                 }
-                // Reset file input
                 e.target.value = '';
+                
+                // Optional: Auto-hide UI on mobile after uploading to watch the build
+                if (window.innerWidth <= 600) uiPanel.classList.add('collapsed');
             };
             img.src = event.target.result;
         };
@@ -307,9 +384,8 @@
 
     function animate() {
         requestAnimationFrame(animate);
-        controls.update(); // Required for damping
+        controls.update(); 
 
-        // State Machine
         if (targetQueue.length === 0) {
             if (state !== "DREAMING") {
                 state = "DREAMING";
@@ -317,10 +393,9 @@
                 uiState.style.color = "#4caf50";
             }
             
-            // Dream Logic: Wander and build based on memory
             const randomColor = learnedColors.length > 0 
                 ? learnedColors[Math.floor(Math.random() * learnedColors.length)] 
-                : new THREE.Color(0x6c6cf5); // Default color if memory is empty
+                : new THREE.Color(0x6c6cf5); 
             
             targetQueue.push({
                 x: (Math.floor(Math.random() * 40) - 20) * 0.7,
@@ -330,7 +405,6 @@
             });
         }
 
-        // Movement & Building Logic
         if (targetQueue.length > 0) {
             if (!currentGoal) currentGoal = targetQueue[0];
 
